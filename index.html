@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Follow the Frog</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #e0f7fa; /* Light froggy green/blue */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #2e7d32;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #388e3c;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Utility class to hide pages */
+        .hidden {
+            display: none;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        #visualizer {
+            width: 100%;
+            height: 100px;
+            background-color: #f1f8e9;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        audio {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .downloads-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .download-link {
+            display: inline-block;
+            margin: 5px;
+            padding: 10px 20px;
+            background-color: #0288d1;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .download-link:hover {
+            background-color: #01579b;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- PAGE 1: Audio Player -->
+        <div id="page-1">
+            <h1>🐸 Follow the Frog</h1>
+            <p>Listen carefully to the sound...</p>
+            
+            <canvas id="visualizer" width="600" height="100"></canvas>
+
+            <!-- Audio Element pointing to the Audio folder -->
+            <audio id="frogAudio" controls>
+                <!-- Update filename if necessary -->
+                <source src="Audio/frog.mp3" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+
+            <div id="controls">
+                <button id="nextBtn" onclick="goToPage2()" disabled>Go to Video &rarr;</button>
+            </div>
+
+            <div class="downloads-section">
+                <h3>📚 Teacher Resources</h3>
+                <a href="Downloads/worksheet.pdf" download class="download-link">📄 Download Worksheet</a>
+                <a href="Downloads/answerkey.pdf" download class="download-link">🔑 Download Answer Key</a>
+            </div>
+        </div>
+
+        <!-- PAGE 2: Video Player -->
+        <div id="page-2" class="hidden">
+            <h1>The Final Video</h1>
+            
+            <!-- Video Element pointing to the Video folder -->
+            <video id="finalVideo" controls>
+                <!-- Update filename if necessary -->
+                <source src="Video/final.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+
+            <br><br>
+            <button onclick="restartApp()">Start Over</button>
+        </div>
+    </div>
+
+    <script>
+        // References to DOM elements
+        const page1 = document.getElementById('page-1');
+        const page2 = document.getElementById('page-2');
+        const audioPlayer = document.getElementById('frogAudio');
+        const videoPlayer = document.getElementById('finalVideo');
+        const nextBtn = document.getElementById('nextBtn');
+        
+        // Visualization variables
+        let audioContext;
+        let analyser;
+        let dataArray;
+        const canvas = document.getElementById('visualizer');
+        const canvasCtx = canvas.getContext('2d');
+
+        function initAudioContext() {
+            if (audioContext) return;
+
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioContext = new AudioContext();
+            analyser = audioContext.createAnalyser();
+            
+            // Connect audio element to analyser
+            const source = audioContext.createMediaElementSource(audioPlayer);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+
+            drawVisualizer();
+        }
+
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+
+            if (!analyser) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            for(let i = 0; i < dataArray.length; i++) {
+                barHeight = dataArray[i] / 2.5; // Scale down to fit canvas
+
+                // Green shades for the frog theme
+                canvasCtx.fillStyle = 'rgb(50, ' + (barHeight + 100) + ', 50)';
+                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        }
+
+        // Initialize context and enable button when user plays audio via controls
+        audioPlayer.addEventListener('play', () => {
+            // Initialize context on user gesture
+            if (!audioContext) {
+                initAudioContext();
+            } else if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            nextBtn.disabled = false;
+            nextBtn.innerText = "Go to Video →";
+        });
+
+        // Optional: Auto-enable button when audio ends
+        audioPlayer.onended = function() {
+            nextBtn.style.backgroundColor = "#2e7d32"; // Darker green to indicate readiness
+            nextBtn.innerText = "Audio Finished! Go to Video →";
+        };
+
+        // Function to switch to Page 2
+        function goToPage2() {
+            // Stop audio if it's still playing
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+
+            // Switch Views
+            page1.classList.add('hidden');
+            page2.classList.remove('hidden');
+
+            // Auto-play video
+            videoPlayer.play().catch(error => {
+                console.log("Autoplay prevented by browser, user must click play on video controls.");
+            });
+        }
+
+        // Function to restart the app
+        function restartApp() {
+            // Stop video
+            videoPlayer.pause();
+            videoPlayer.currentTime = 0;
+
+            // Switch Views
+            page2.classList.add('hidden');
+            page1.classList.remove('hidden');
+            
+            // Reset buttons
+            nextBtn.disabled = true;
+            nextBtn.innerText = "Go to Video →";
+            nextBtn.style.backgroundColor = "#4caf50";
+        }
+    </script>
+
+</body>
+</html>
